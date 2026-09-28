@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec Change Control · APL</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --navy:#1f3a5f; --navy-2:#2c4f7c; --bg:#f4f6f8; --card:#fff; --line:#e2e8f0; --muted:#718096; --text:#1a202c;
+    --amber:#b7791f; --amber-bg:#fefcbf; --blue:#2b6cb0; --blue-bg:#ebf4ff; --green:#2f855a; --green-bg:#e6fffa;
+    --red:#c53030; --red-bg:#fff5f5; --hl:#fffbea; --radius:10px;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 "Segoe UI",system-ui,-apple-system,Arial,sans-serif}
+  button,input,select,textarea{font:inherit}
+  .topbar{background:var(--navy);color:#fff;position:sticky;top:0;z-index:20}
+  .topbar-in{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;flex-direction:column;line-height:1.15;margin-right:auto}
+  .brand small{opacity:.75;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+  .brand b{font-size:17px;font-weight:600}
+  .nav{display:flex;gap:4px}
+  .nav button{background:transparent;border:0;color:#cfe0f5;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:500}
+  .nav button.active,.nav button:hover{background:rgba(255,255,255,.12);color:#fff}
+  .userchip{font-size:13px;opacity:.9;display:flex;align-items:center;gap:8px}
+  .userchip button{background:rgba(255,255,255,.12);border:0;color:#fff;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px}
+  main{max-width:1200px;margin:0 auto;padding:20px 16px 60px}
+  .narrow{max-width:860px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  .lead{color:var(--muted);margin:0 0 18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 14px;color:var(--navy);display:flex;align-items:center;gap:8px}
+  .card h2 .num{background:var(--navy);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;font-size:12px}
+  .grid{display:grid;gap:12px 16px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .grid.three{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#4a5568}
+  label.f .req{color:var(--red)}
+  label.f .hint{font-weight:400;color:var(--muted);font-size:12px}
+  input[type=text],input[type=email],input[type=date],input[type=search],textarea,select{
+    border:1px solid #cbd5e0;border-radius:6px;padding:9px 10px;background:#fff;color:var(--text);width:100%;font-weight:400}
+  input:focus,textarea:focus,select:focus{outline:2px solid #90cdf4;border-color:#63b3ed}
+  textarea{resize:vertical;min-height:70px}
+  .full{grid-column:1/-1}
+  .pills{display:flex;gap:8px;flex-wrap:wrap}
+  .pills label{border:1px solid #cbd5e0;border-radius:999px;padding:8px 14px;cursor:pointer;background:#fff;font-weight:500;font-size:14px;color:var(--text)}
+  .pills input{position:absolute;opacity:0;pointer-events:none}
+  .pills label:has(input:checked){background:var(--navy);border-color:var(--navy);color:#fff}
+  .check{display:flex;gap:8px;align-items:flex-start;font-size:14px;cursor:pointer}
+  .check input{margin-top:3px;width:16px;height:16px}
+  .note{font-size:12px;color:var(--muted);margin-top:6px}
+  .btn{border:0;border-radius:6px;padding:10px 18px;font-weight:600;cursor:pointer;background:var(--navy);color:#fff;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{background:var(--navy-2)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .btn.ghost{background:#fff;color:var(--navy);border:1px solid #cbd5e0}
+  .btn.ghost:hover{background:#f7fafc}
+  .btn.green{background:var(--green)} .btn.green:hover{background:#276749}
+  .btn.red{background:var(--red)} .btn.red:hover{background:#9b2c2c}
+  .btn.sm{padding:6px 12px;font-size:13px}
+  .btn.link{background:none;color:var(--blue);padding:4px 6px;font-weight:500}
+  .actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  .success{text-align:center;padding:40px 20px}
+  .success .tick{width:64px;height:64px;border-radius:50%;background:var(--green-bg);color:var(--green);display:grid;place-items:center;font-size:32px;margin:0 auto 12px}
+  .success .refbig{font-size:28px;font-weight:700;color:var(--navy);letter-spacing:.03em}
+  /* dashboard */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+  .tile{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;cursor:pointer;border-top:4px solid var(--line)}
+  .tile .v{font-size:28px;font-weight:700;line-height:1.1}
+  .tile .l{font-size:13px;color:var(--muted)}
+  .tile.amber{border-top-color:var(--amber)} .tile.blue{border-top-color:var(--blue)} .tile.green{border-top-color:var(--green)} .tile.grey{border-top-color:#a0aec0}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .seg{display:flex;background:#fff;border:1px solid #cbd5e0;border-radius:8px;overflow:hidden}
+  .seg button{border:0;background:none;padding:8px 14px;cursor:pointer;font-weight:500;color:#4a5568}
+  .seg button.active{background:var(--navy);color:#fff}
+  .toolbar input[type=search]{max-width:320px;flex:1}
+  .tablewrap{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:auto}
+  table.list{width:100%;border-collapse:collapse;font-size:14px}
+  table.list th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);background:#fafbfc;white-space:nowrap}
+  table.list td{padding:10px 12px;border-bottom:1px solid #edf2f7;vertical-align:middle}
+  table.list tr.row{cursor:pointer}
+  table.list tr.row:hover td{background:#f7fafc}
+  .ref{font-weight:700;color:var(--navy);white-space:nowrap}
+  .sub{color:var(--muted);font-size:12px}
+  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+  .b-pending{background:var(--amber-bg);color:#975a16}
+  .b-approved{background:var(--blue-bg);color:var(--blue)}
+  .b-complete{background:var(--green-bg);color:var(--green)}
+  .b-rejected{background:var(--red-bg);color:var(--red)}
+  .prog{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap}
+  .prog .bar{width:60px;height:6px;background:#edf2f7;border-radius:3px;overflow:hidden}
+  .prog .bar i{display:block;height:100%;background:var(--green)}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:50;display:flex;justify-content:center;align-items:flex-start;padding:30px 12px;overflow:auto}
+  .modal[hidden]{display:none}
+  .modal-card{background:#fff;border-radius:12px;width:100%;max-width:900px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .mhead{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+  .mhead h2{margin:2px 0 2px;font-size:20px}
+  .mhead .x{margin-left:auto;background:none;border:0;font-size:24px;line-height:1;cursor:pointer;color:var(--muted)}
+  .mbody{padding:18px 22px}
+  .sec{margin-bottom:22px}
+  .sec h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 10px}
+  .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px 18px}
+  .kv div span{display:block;font-size:12px;color:var(--muted)}
+  .kv div b{font-weight:600}
+  table.cmp{width:100%;border-collapse:collapse;font-size:14px}
+  table.cmp th,table.cmp td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+  table.cmp th{background:#fafbfc;font-size:12px;color:#4a5568}
+  table.cmp tr.chg td.new{background:var(--hl);font-weight:600}
+  table.cmp tr.chg td:first-child::after{content:" ●";color:var(--amber)}
+  .docket{white-space:pre-wrap;background:#f7fafc;border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-family:Consolas,monospace;font-size:14px}
+  .callout{border-left:4px solid var(--blue);background:var(--blue-bg);padding:10px 14px;border-radius:0 6px 6px 0;font-size:14px}
+  .callout.green{border-color:var(--green);background:var(--green-bg)}
+  .callout.red{border-color:var(--red);background:var(--red-bg)}
+  .callout.amber{border-color:var(--amber);background:#fffff0}
+  .sys{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+  .sys .nm{font-weight:600;min-width:120px}
+  .sys .hint{font-size:12px;color:var(--muted)}
+  .sys .st{margin-left:auto;text-align:right;font-size:13px}
+  .sys.done{background:#f0fff4;border-color:#c6f6d5}
+  .sys.na{opacity:.55}
+  .sysgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px}
+  .log{list-style:none;margin:0;padding:0;border-left:2px solid var(--line)}
+  .log li{padding:0 0 12px 14px;position:relative;font-size:14px}
+  .log li::before{content:"";position:absolute;left:-6px;top:5px;width:10px;height:10px;border-radius:50%;background:#cbd5e0}
+  .log li.Approved::before,.log li.Complete::before,.log li[data-e="System updated"]::before{background:var(--green)}
+  .log li.Rejected::before{background:var(--red)}
+  .log .when{font-size:12px;color:var(--muted)}
+  .mfoot{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a202c;color:#fff;padding:10px 18px;border-radius:8px;z-index:100;font-size:14px;box-shadow:0 8px 20px rgba(0,0,0,.2)}
+  .toast.err{background:var(--red)}
+  .signin{max-width:420px;margin:40px auto}
+  table.set{width:100%;border-collapse:collapse;font-size:14px}
+  table.set th,table.set td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+  table.set td.c,table.set th.c{text-align:center}
+  table.set th.grp{border-bottom:1px solid var(--line);background:#f1f5f9}
+  table.set thead th{font-size:12px;color:var(--muted);white-space:nowrap}
+  #print-area{display:none}
+  @media (max-width:640px){ .hide-sm{display:none} .sys{flex-wrap:wrap} .sys .st{margin-left:0;text-align:left;width:100%} }
+  @media print{
+    body{background:#fff}
+    body > *:not(#print-area){display:none !important}
+    #print-area{display:block;font-size:12px;color:#000}
+    #print-area h1{font-size:18px;margin:0}
+    #print-area table{width:100%;border-collapse:collapse;margin:6px 0 10px}
+    #print-area th,#print-area td{border:1px solid #444;padding:4px 6px;text-align:left;vertical-align:top}
+    #print-area th{background:#eee;width:28%}
+    #print-area .pre{white-space:pre-wrap}
+    #print-area .foot{margin-top:14px;font-size:10px;color:#444}
+    @page{size:A4;margin:14mm}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand"><small>Avoncourt Packaging</small><b>Product Spec Change Control</b></div>
+    <nav class="nav">
+      <button data-nav="request" class="active">New request</button>
+      <button data-nav="dash">Dashboard</button>
+    </nav>
+    <div class="userchip" id="userchip" hidden><span id="username"></span><button id="signout">Sign out</button></div>
+  </div>
+</header>
+
+<main>
+  <!-- ============ REQUEST FORM ============ -->
+  <section id="view-request" class="narrow">
+    <h1>Product Specification Change Request</h1>
+    <p class="lead">Use this for any new job or change to a job spec in JOB 7. Nothing should be changed in JOB 7 until the request is approved.</p>
+
+    <form id="reqForm" novalidate>
+      <div class="card">
+        <h2><span class="num">1</span> Product</h2>
+        <div class="grid">
+          <label class="f">Product name <span class="req">*</span><input type="text" name="product_name" required placeholder="e.g. 4 Eclair Hingepack"></label>
+          <label class="f">Product / item code<input type="text" name="product_code" placeholder="e.g. 4209930"></label>
+          <label class="f">Mould number <span class="req">*</span><input type="text" name="mould_number" required placeholder="e.g. 6081A"></label>
+          <label class="f">Material thickness<input type="text" name="material_thickness" placeholder="e.g. 785-375"></label>
+          <label class="f">Type / colour<input type="text" name="type_colour" list="dl-colour" placeholder="e.g. CLR PET"></label>
+          <label class="f">Customer <span class="req">*</span><input type="text" name="customer" required placeholder="e.g. Fox's Biscuits Ltd"></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="num">2</span> Change</h2>
+        <div class="grid">
+          <div class="full">
+            <div class="f" style="font-size:13px;font-weight:600;color:#4a5568;margin-bottom:6px">Type of change <span style="color:var(--red)">*</span></div>
+            <div class="pills" id="typePills">
+              <label><input type="radio" name="change_type" value="New Job" checked>New job</label>
+              <label><input type="radio" name="change_type" value="Permanent Change">Permanent change</label>
+              <label><input type="radio" name="change_type" value="Temporary Change">Temporary change</label>
+            </div>
+          </div>
+          <label class="f" id="revertWrap" hidden>Revert to original spec on<input type="date" name="revert_date"><span class="hint">When the temporary change should be reversed</span></label>
+          <label class="f full">Reason for change <span class="req">*</span><textarea name="reason" required rows="3" placeholder="What is changing and why (customer request, material change, new job, etc.)"></textarea></label>
+          <label class="check full"><input type="checkbox" name="tool_change"> <span>This is a permanent change to the <b>tool</b> — samples in the Sample Room will need to be replaced with the new version</span></label>
+        </div>
+      </div>
+
+      <div class="card" id="oldCard" hidden>
+        <h2><span class="num">3</span> Old packaging specification <span class="sub" style="font-weight:400">— as currently in JOB 7</span></h2>
+        <div class="grid three" id="oldFields"></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="num" id="newNum">3</span> New packaging specification</h2>
+        <div class="grid three" id="newFields"></div>
+        <div class="grid three" style="margin-top:12px">
+          <label class="f">Stroke<input type="text" name="m_stroke" placeholder="e.g. 380"></label>
+          <label class="f">Speed<input type="text" name="m_speed" placeholder="e.g. 1716"></label>
+          <label class="f">Stacker<input type="text" name="m_stacker" placeholder="e.g. 25, 4 together"></label>
+        </div>
+        <label class="f" style="margin-top:12px">Packaging instructions <span class="hint">As it is to appear on the job docket</span>
+          <textarea name="packaging_instructions" rows="4" placeholder="e.g.&#10;2 rows x 100 per bag&#10;5 bags x 2 high = 10 bags / pallet&#10;666.6 sheets / pallet"></textarea></label>
+      </div>
+
+      <div class="card">
+        <h2><span class="num" id="reqNum">4</span> Requested by</h2>
+        <div class="grid">
+          <label class="f">Your name <span class="req">*</span><input type="text" name="requested_by" required autocomplete="name"></label>
+          <label class="f">Your email <span class="hint">optional — to be told when it's approved/done</span><input type="email" name="requester_email" autocomplete="email"></label>
+          <label class="f">Date required<input type="date" name="date_required"></label>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="reset" class="btn ghost">Clear</button>
+        <button type="submit" class="btn" id="submitBtn">Submit request</button>
+      </div>
+    </form>
+
+    <datalist id="dl-box"><option>PB1</option><option>PB2</option><option>PB4</option><option>B</option><option>C</option></datalist>
+    <datalist id="dl-bag"><option>P Blue</option><option>D Blue</option><option>Heavy Blue</option><option>Green</option><option>Green Sleeve</option></datalist>
+    <datalist id="dl-colour"><option>CLR</option><option>CLR PET</option><option>Matt BLK</option></datalist>
+  </section>
+
+  <section id="view-success" class="narrow" hidden>
+    <div class="card success">
+      <div class="tick">✓</div>
+      <h1>Request submitted</h1>
+      <div class="refbig" id="successRef"></div>
+      <p class="lead" style="margin-top:8px">The approvers have been notified. Please don't change JOB 7 until this is approved.<br>Quote this reference if you need to follow up.</p>
+      <button class="btn" id="anotherBtn">Raise another request</button>
+    </div>
+  </section>
+
+  <!-- ============ SIGN IN ============ -->
+  <section id="view-signin" hidden>
+    <div class="card signin">
+      <h1>Dashboard sign-in</h1>
+      <p class="lead">Approvers only. We'll email you a one-time code.</p>
+      <div id="stepEmail">
+        <label class="f">Work email<input type="email" id="siEmail" autocomplete="email" placeholder="name@avoncourt.com"></label>
+        <div class="actions" style="margin-top:14px"><button class="btn" id="sendCode">Send code</button></div>
+      </div>
+      <div id="stepCode" hidden>
+        <label class="f">Code from email<input type="text" id="siCode" inputmode="numeric" autocomplete="one-time-code" placeholder="Enter code"></label>
+        <div class="actions" style="margin-top:14px">
+          <button class="btn ghost" id="backEmail">Use a different email</button>
+          <button class="btn" id="verifyCode">Sign in</button>
+        </div>
+      </div>
+      <div id="notAuth" class="callout red" style="margin-top:14px" hidden>Your email isn't on the approver list for this dashboard. Ask an admin to add you (People &amp; notifications).</div>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section id="view-dash" hidden>
+    <div class="tiles">
+      <div class="tile amber" data-f="pending"><div class="v" id="t-pending">–</div><div class="l">Awaiting approval</div></div>
+      <div class="tile blue" data-f="approved"><div class="v" id="t-approved">–</div><div class="l">Approved · systems outstanding</div></div>
+      <div class="tile green" data-f="complete"><div class="v" id="t-complete">–</div><div class="l">Completed · last 30 days</div></div>
+      <div class="tile grey" data-f="open"><div class="v" id="t-oldest">–</div><div class="l">Oldest open request (days)</div></div>
+    </div>
+    <div class="toolbar">
+      <div class="seg" id="seg">
+        <button data-f="open" class="active">Open</button>
+        <button data-f="pending">Awaiting approval</button>
+        <button data-f="approved">In progress</button>
+        <button data-f="complete">Completed</button>
+        <button data-f="rejected">Rejected</button>
+        <button data-f="all">All</button>
+      </div>
+      <input type="search" id="search" placeholder="Search product, mould, customer, ref…">
+      <span style="margin-left:auto"></span>
+      <button class="btn ghost sm" id="refreshBtn">↻ Refresh</button>
+      <button class="btn ghost sm" id="csvBtn">Export CSV</button>
+      <button class="btn ghost sm" id="settingsBtn">⚙ People &amp; notifications</button>
+    </div>
+    <div class="tablewrap">
+      <table class="list">
+        <thead><tr>
+          <th>Ref</th><th>Raised</th><th>Product</th><th>Mould</th><th class="hide-sm">Customer</th>
+          <th class="hide-sm">Type</th><th class="hide-sm">Requested by</th><th>Status</th><th class="hide-sm">Systems</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="emptyMsg" hidden>No requests match.</div>
+    </div>
+  </section>
+
+  <!-- ============ PEOPLE & NOTIFICATIONS ============ -->
+  <section id="view-settings" hidden>
+    <button class="btn link" id="backDash">← Back to dashboard</button>
+    <h1>People &amp; notifications</h1>
+    <p class="lead">Tick what each person needs. Dashboard access lets them view, approve and sign off; the email columns control which notifications they get. The requester is also emailed on approval / rejection / completion if they gave an address.</p>
+    <div class="callout" id="notAdminMsg" style="margin-bottom:12px" hidden>You can view this list but only an admin can change it.</div>
+    <div class="tablewrap">
+      <table class="set">
+        <thead>
+          <tr><th rowspan="2">Name</th><th rowspan="2">Email</th><th class="c grp" colspan="2">Access</th><th class="c grp" colspan="4">Email me when…</th><th class="c" rowspan="2">Active</th><th rowspan="2"></th></tr>
+          <tr><th class="c">Dashboard</th><th class="c">Admin</th><th class="c">New request</th><th class="c">Approved</th><th class="c">Completed</th><th class="c">Rejected</th></tr>
+        </thead>
+        <tbody id="peopleRows"></tbody>
+      </table>
+    </div>
+    <div class="card" id="addPerson" style="margin-top:16px">
+      <h2>Add a person</h2>
+      <div class="grid">
+        <label class="f">Name<input type="text" id="apName"></label>
+        <label class="f">Email<input type="email" id="apEmail" placeholder="name@avoncourt.com"></label>
+      </div>
+      <div class="pills" style="margin-top:12px" id="apFlags">
+        <label><input type="checkbox" value="dashboard_access">Dashboard access</label>
+        <label><input type="checkbox" value="on_submitted">Email: new request</label>
+        <label><input type="checkbox" value="on_approved">Email: approved</label>
+        <label><input type="checkbox" value="on_completed">Email: completed</label>
+        <label><input type="checkbox" value="on_rejected">Email: rejected</label>
+      </div>
+      <div class="actions" style="margin-top:12px"><button class="btn" id="apAdd">Add person</button></div>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="modal" hidden><div class="modal-card" id="modalCard"></div></div>
+<div id="print-area"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ================= CONFIG ================= */
+const CONFIG = {
+  SUPABASE_URL: 'https://attnhvdollarpqfulmhe.supabase.co',
+  SUPABASE_ANON_KEY: 'PASTE_ANON_KEY_HERE',
+  NOTIFY_FUNCTION: 'spec-change-notify',
+  REF_PREFIX: 'SCR-'
+};
+const SYSTEMS = ['JOB 7 / QA','AIMS / CRM','WIMS / ADA','SAGE / SI','Labels / QA','Sample Room'];
+const SYSTEM_HINTS = {
+  'JOB 7 / QA': 'Once JOB 7 is updated, make sure all subsequent jobs are amended to reflect the change.',
+  'Sample Room': 'If the tool change is permanent, samples must be replaced with the new version.'
+};
+const SPEC_FIELDS = [
+  ['box_type','Box type','dl-box'], ['bag','Bag','dl-bag'], ['qty_per_box','Qty per box'],
+  ['boxes_per_pallet','Boxes per pallet'], ['pallet_type','Pallet type'], ['other','Other']
+];
+const MACHINE_FIELDS = [['stroke','Stroke'],['speed','Speed'],['stacker','Stacker']];
+
+const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const state = { viewer: null, email: null, requests: [], filter: 'open', search: '', openId: null,
+                deepLink: new URLSearchParams(location.search).get('id') };
+
+/* ================= UTIL ================= */
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ref = n => CONFIG.REF_PREFIX + String(n).padStart(4, '0');
+const fmtDT = s => s ? new Date(s).toLocaleString('en-IE', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+const fmtD = s => s ? new Date(s.length === 10 ? s + 'T00:00:00' : s).toLocaleDateString('en-IE', { dateStyle: 'medium' }) : '';
+const norm = v => String(v ?? '').trim().toLowerCase();
+const statusClass = s => ({ 'Pending Approval': 'b-pending', 'Approved': 'b-approved', 'Complete': 'b-complete', 'Rejected': 'b-rejected' }[s] || '');
+const statusLabel = s => s === 'Approved' ? 'Approved · in progress' : s;
+function toast(msg, err = false) {
+  const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); t.hidden = false;
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, err ? 6000 : 3000);
+}
+function show(view) {
+  ['request','success','signin','dash','settings'].forEach(v => $('#view-' + v).hidden = v !== view);
+  $$('.nav button').forEach(b => b.classList.toggle('active',
+    (b.dataset.nav === 'request' && (view === 'request' || view === 'success')) ||
+    (b.dataset.nav === 'dash' && ['signin','dash','settings'].includes(view))));
+  window.scrollTo(0, 0);
+}
+function notify(id, event) {
+  sb.functions.invoke(CONFIG.NOTIFY_FUNCTION, { body: { id, event } })
+    .then(({ error }) => { if (error) console.warn('notify', event, error); })
+    .catch(e => console.warn('notify', e));
+}
+const sysOf = r => (r.spec_change_systems || []).slice().sort((a, b) => a.sort_order - b.sort_order);
+
+/* ================= REQUEST FORM ================= */
+// keep each label's text + required star on one line
+function tidyLabels(root = document) {
+  $$('label.f', root).forEach(l => {
+    if (l.querySelector(':scope > .lt')) return;
+    const span = document.createElement('span'); span.className = 'lt';
+    while (l.firstChild && !(l.firstChild.nodeType === 1 && (l.firstChild.matches('input,textarea,select,.hint')))) span.appendChild(l.firstChild);
+    l.insertBefore(span, l.firstChild);
+  });
+}
+function buildSpecInputs(container, prefix) {
+  container.innerHTML = SPEC_FIELDS.map(([k, l, dl]) =>
+    `<label class="f">${l}<input type="text" name="${prefix}_${k}" ${dl ? `list="${dl}"` : ''}></label>`).join('');
+}
+buildSpecInputs($('#oldFields'), 'old');
+buildSpecInputs($('#newFields'), 'new');
+tidyLabels();
+
+function syncType() {
+  const t = $('input[name=change_type]:checked').value;
+  $('#oldCard').hidden = t === 'New Job';
+  $('#revertWrap').hidden = t !== 'Temporary Change';
+  $('#newNum').textContent = t === 'New Job' ? '3' : '4';
+  $('#reqNum').textContent = t === 'New Job' ? '4' : '5';
+}
+$$('input[name=change_type]').forEach(r => r.addEventListener('change', syncType));
+$('#reqForm').addEventListener('reset', () => setTimeout(syncType, 0));
+syncType();
+
+$('#reqForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target, fd = new FormData(f), g = k => (fd.get(k) || '').toString().trim();
+  const missing = [...f.querySelectorAll('[required]')].filter(i => !i.value.trim());
+  $$('[required]', f).forEach(i => i.style.borderColor = '');
+  if (missing.length) { missing.forEach(i => i.style.borderColor = 'var(--red)'); missing[0].focus(); return toast('Please fill in the required fields', true); }
+  const type = g('change_type');
+  const spec = p => Object.fromEntries(SPEC_FIELDS.map(([k]) => [k, g(`${p}_${k}`)]).filter(([, v]) => v));
+  const newSpec = spec('new'), oldSpec = type === 'New Job' ? {} : spec('old');
+  if (!Object.keys(newSpec).length && !g('packaging_instructions')) return toast('Please enter the new packaging spec or instructions', true);
+  if (type === 'Temporary Change' && !g('revert_date')) { f.revert_date.focus(); return toast('Please give a revert date for a temporary change', true); }
+  const payload = {
+    product_name: g('product_name'), product_code: g('product_code'), mould_number: g('mould_number'),
+    material_thickness: g('material_thickness'), type_colour: g('type_colour'), customer: g('customer'),
+    change_type: type, reason: g('reason'), tool_change: !!fd.get('tool_change'), revert_date: g('revert_date'),
+    old_spec: oldSpec, new_spec: newSpec,
+    machine_settings: Object.fromEntries(MACHINE_FIELDS.map(([k]) => [k, g('m_' + k)]).filter(([, v]) => v)),
+    packaging_instructions: fd.get('packaging_instructions')?.toString().trim() || '',
+    requested_by: g('requested_by'), requester_email: g('requester_email'), date_required: g('date_required')
+  };
+  const btn = $('#submitBtn'); btn.disabled = true; btn.textContent = 'Submitting…';
+  const { data, error } = await sb.rpc('submit_spec_change', { p: payload });
+  btn.disabled = false; btn.textContent = 'Submit request';
+  if (error) return toast('Could not submit: ' + error.message, true);
+  notify(data.id, 'submitted');
+  $('#successRef').textContent = ref(data.ref_no);
+  const keepName = g('requested_by'), keepEmail = g('requester_email');
+  f.reset(); f.requested_by.value = keepName; f.requester_email.value = keepEmail;
+  show('success');
+});
+$('#anotherBtn').onclick = () => show('request');
+
+/* ================= AUTH ================= */
+let pendingEmail = '';
+$('#sendCode').onclick = async () => {
+  const email = $('#siEmail').value.trim().toLowerCase();
+  if (!email) return toast('Enter your email', true);
+  const b = $('#sendCode'); b.disabled = true;
+  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  b.disabled = false;
+  if (error) return toast(error.message, true);
+  pendingEmail = email; $('#stepEmail').hidden = true; $('#stepCode').hidden = false; $('#siCode').focus();
+  toast('Code sent — check your inbox');
+};
+$('#backEmail').onclick = () => { $('#stepEmail').hidden = false; $('#stepCode').hidden = true; };
+$('#verifyCode').onclick = async () => {
+  const token = $('#siCode').value.replace(/\s/g, '');
+  if (!token) return;
+  const b = $('#verifyCode'); b.disabled = true;
+  const { error } = await sb.auth.verifyOtp({ email: pendingEmail, token, type: 'email' });
+  b.disabled = false;
+  if (error) return toast(error.message, true);
+};
+$('#siCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#verifyCode').click(); });
+$('#siEmail').addEventListener('keydown', e => { if (e.key === 'Enter') $('#sendCode').click(); });
+$('#signout').onclick = async () => { await sb.auth.signOut(); };
+
+sb.auth.onAuthStateChange((_ev, session) => { setTimeout(() => handleSession(session), 0); });
+
+async function handleSession(session) {
+  if (!session) {
+    state.viewer = null; state.email = null; state.isAdmin = false; $('#userchip').hidden = true;
+    $('#stepEmail').hidden = false; $('#stepCode').hidden = true; $('#notAuth').hidden = true;
+    if (!$('#view-dash').hidden || !$('#view-settings').hidden) show('signin');
+    return;
+  }
+  if (state.viewer && state.email === session.user.email) return;
+  const { data: name, error } = await sb.rpc('spec_viewer_name');
+  state.email = session.user.email;
+  $('#username').textContent = name || session.user.email; $('#userchip').hidden = false;
+  if (error || !name) { state.viewer = null; $('#notAuth').hidden = false; $('#stepCode').hidden = true; return; }
+  state.viewer = name;
+  state.isAdmin = !!(await sb.rpc('is_spec_admin')).data;
+  if (state.deepLink || !$('#view-signin').hidden) { show('dash'); await loadDash(); }
+}
+
+$$('.nav button').forEach(b => b.onclick = () => {
+  if (b.dataset.nav === 'request') return show('request');
+  if (state.viewer) { show('dash'); loadDash(); } else show('signin');
+});
+
+/* ================= DASHBOARD ================= */
+async function fetchAll() {
+  const out = [], size = 1000;
+  for (let from = 0; ; from += size) {
+    const { data, error } = await sb.from('spec_change_requests').select('*, spec_change_systems(*)')
+      .order('created_at', { ascending: false }).range(from, from + size - 1);
+    if (error) throw error;
+    out.push(...data); if (data.length < size) break;
+  }
+  return out;
+}
+async function loadDash() {
+  try { state.requests = await fetchAll(); }
+  catch (e) { return toast('Could not load: ' + e.message, true); }
+  renderDash();
+  if (state.deepLink) { const id = state.deepLink; state.deepLink = null; history.replaceState(null, '', location.pathname); openDetail(id); }
+}
+function matchesFilter(r, f) {
+  if (f === 'all') return true;
+  if (f === 'open') return r.status === 'Pending Approval' || r.status === 'Approved';
+  if (f === 'pending') return r.status === 'Pending Approval';
+  if (f === 'approved') return r.status === 'Approved';
+  if (f === 'complete') return r.status === 'Complete';
+  if (f === 'rejected') return r.status === 'Rejected';
+}
+function renderDash() {
+  const R = state.requests, now = Date.now();
+  $('#t-pending').textContent = R.filter(r => r.status === 'Pending Approval').length;
+  $('#t-approved').textContent = R.filter(r => r.status === 'Approved').length;
+  $('#t-complete').textContent = R.filter(r => r.status === 'Complete' && now - new Date(r.completed_at) < 30 * 864e5).length;
+  const open = R.filter(r => matchesFilter(r, 'open'));
+  $('#t-oldest').textContent = open.length ? Math.floor((now - Math.min(...open.map(r => +new Date(r.created_at)))) / 864e5) : '0';
+
+  const q = norm(state.search);
+  const list = R.filter(r => matchesFilter(r, state.filter)).filter(r => !q ||
+    [ref(r.ref_no), r.product_name, r.product_code, r.mould_number, r.customer, r.requested_by, r.approved_by].some(v => norm(v).includes(q)));
+  $('#emptyMsg').hidden = list.length > 0;
+  $('#rows').innerHTML = list.map(r => {
+    const sys = sysOf(r).filter(s => s.required), done = sys.filter(s => s.done_at).length;
+    const prog = (r.status === 'Approved' || r.status === 'Complete') && sys.length
+      ? `<div class="prog"><div class="bar"><i style="width:${done / sys.length * 100}%"></i></div>${done}/${sys.length}</div>` : '<span class="sub">—</span>';
+    return `<tr class="row" data-id="${r.id}">
+      <td class="ref">${ref(r.ref_no)}</td>
+      <td>${fmtD(r.created_at)}</td>
+      <td><b>${esc(r.product_name)}</b>${r.product_code ? `<div class="sub">${esc(r.product_code)}</div>` : ''}</td>
+      <td>${esc(r.mould_number)}</td>
+      <td class="hide-sm">${esc(r.customer)}</td>
+      <td class="hide-sm">${esc(r.change_type)}${r.tool_change ? ' <span class="sub">· tool</span>' : ''}</td>
+      <td class="hide-sm">${esc(r.requested_by)}</td>
+      <td><span class="badge ${statusClass(r.status)}">${esc(statusLabel(r.status))}</span></td>
+      <td class="hide-sm">${prog}</td></tr>`;
+  }).join('');
+}
+$('#rows').addEventListener('click', e => { const tr = e.target.closest('tr.row'); if (tr) openDetail(tr.dataset.id); });
+function setFilter(f) { state.filter = f; $$('#seg button').forEach(b => b.classList.toggle('active', b.dataset.f === f)); renderDash(); }
+$$('#seg button').forEach(b => b.onclick = () => setFilter(b.dataset.f));
+$$('.tile').forEach(t => t.onclick = () => setFilter(t.dataset.f));
+$('#search').addEventListener('input', e => { state.search = e.target.value; renderDash(); });
+$('#refreshBtn').onclick = () => loadDash().then(() => toast('Refreshed'));
+window.addEventListener('focus', () => { if (state.viewer && !$('#view-dash').hidden && $('#modal').hidden) loadDash(); });
+
+$('#csvBtn').onclick = () => {
+  const cols = ['Ref','Raised','Status','Change type','Product','Product code','Mould','Material thickness','Type/colour','Customer','Reason',
+    ...SPEC_FIELDS.flatMap(([, l]) => ['Old ' + l, 'New ' + l]), 'Stroke','Speed','Stacker','Packaging instructions',
+    'Requested by','Approved by','Approved at','Completed at','Rejected by','Rejection reason',
+    ...SYSTEMS.map(s => s + ' (by / at)')];
+  const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = state.requests.filter(r => matchesFilter(r, state.filter)).map(r => {
+    const sys = Object.fromEntries(sysOf(r).map(s => [s.system_code, s]));
+    return [ref(r.ref_no), fmtDT(r.created_at), r.status, r.change_type, r.product_name, r.product_code, r.mould_number, r.material_thickness,
+      r.type_colour, r.customer, r.reason, ...SPEC_FIELDS.flatMap(([k]) => [r.old_spec?.[k], r.new_spec?.[k]]),
+      r.machine_settings?.stroke, r.machine_settings?.speed, r.machine_settings?.stacker, r.packaging_instructions,
+      r.requested_by, r.approved_by, fmtDT(r.approved_at), fmtDT(r.completed_at), r.rejected_by, r.rejection_reason,
+      ...SYSTEMS.map(s => { const x = sys[s]; return !x ? '' : !x.required ? 'N/A' : x.done_at ? `${x.done_by} / ${fmtDT(x.done_at)}` : 'Outstanding'; })
+    ].map(cell).join(',');
+  });
+  const blob = new Blob(['﻿' + [cols.map(cell).join(','), ...rows].join('\r\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `spec-changes-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+};
+
+/* ================= DETAIL ================= */
+async function openDetail(id) {
+  let r = state.requests.find(x => x.id === id);
+  if (!r) { await loadDash(); r = state.requests.find(x => x.id === id); }
+  if (!r) return toast('Request not found', true);
+  state.openId = id;
+  const { data: events } = await sb.from('spec_change_events').select('*').eq('request_id', id).order('created_at');
+  renderDetail(r, events || []);
+  $('#modal').hidden = false; document.body.style.overflow = 'hidden';
+}
+function closeDetail() { $('#modal').hidden = true; document.body.style.overflow = ''; state.openId = null; }
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeDetail(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closeDetail(); });
+
+function compareTable(r) {
+  const isNew = r.change_type === 'New Job';
+  const rows = SPEC_FIELDS.map(([k, l]) => {
+    const o = r.old_spec?.[k], n = r.new_spec?.[k];
+    if (!o && !n) return '';
+    const chg = !isNew && norm(o) !== norm(n);
+    return `<tr class="${chg ? 'chg' : ''}"><td>${l}</td>${isNew ? '' : `<td>${esc(o) || '<span class="sub">—</span>'}</td>`}<td class="new">${esc(n) || '<span class="sub">—</span>'}</td></tr>`;
+  }).join('');
+  if (!rows) return '<p class="sub">No packaging spec fields entered.</p>';
+  return `<table class="cmp"><thead><tr><th style="width:28%"></th>${isNew ? '' : '<th>Old (current)</th>'}<th>New</th></tr></thead><tbody>${rows}</tbody></table>
+    ${isNew ? '' : '<div class="note">● highlighted = changed</div>'}`;
+}
+
+function renderDetail(r, events) {
+  const kv = (k, v) => v ? `<div><span>${k}</span><b>${esc(v)}</b></div>` : '';
+  const machine = MACHINE_FIELDS.filter(([k]) => r.machine_settings?.[k]).map(([k, l]) => kv(l, r.machine_settings[k])).join('');
+  const sys = sysOf(r);
+  let approval = '';
+  if (r.status === 'Pending Approval') {
+    approval = `<div class="sec"><h3>Approval</h3>
+      <div class="callout amber" style="margin-bottom:12px">Check the details above, then tick the systems that need updating for this change.</div>
+      <div class="sysgrid">${SYSTEMS.map(s => `<label class="check"><input type="checkbox" class="apSys" value="${esc(s)}" checked> ${esc(s)}</label>`).join('')}</div>
+      <label class="f">Approval notes (optional)<textarea id="apNotes" rows="2"></textarea></label>
+      <div class="actions" style="margin-top:12px">
+        <button class="btn red" id="rejToggle">Reject…</button>
+        <button class="btn green" id="apBtn">Approve as ${esc(state.viewer)}</button>
+      </div>
+      <div id="rejBox" hidden style="margin-top:12px">
+        <label class="f">Reason for rejection<textarea id="rejReason" rows="2"></textarea></label>
+        <div class="actions" style="margin-top:8px"><button class="btn red" id="rejBtn">Confirm reject</button></div>
+      </div></div>`;
+  } else if (r.status === 'Rejected') {
+    approval = `<div class="sec"><h3>Approval</h3><div class="callout red"><b>Rejected</b> by ${esc(r.rejected_by)} · ${fmtDT(r.rejected_at)}<br>${esc(r.rejection_reason)}</div></div>`;
+  } else {
+    approval = `<div class="sec"><h3>Approval</h3><div class="callout green"><b>Approved</b> by ${esc(r.approved_by)} · ${fmtDT(r.approved_at)}${r.approval_notes ? `<br><i>${esc(r.approval_notes)}</i>` : ''}</div></div>
+      <div class="sec"><h3>Systems amended</h3>
+      ${sys.map(s => {
+        const hint = SYSTEM_HINTS[s.system_code] && s.required && !s.done_at ? `<div class="hint">${esc(SYSTEM_HINTS[s.system_code])}</div>` : '';
+        let st;
+        if (!s.required) st = '<span class="sub">Not required</span>';
+        else if (s.done_at) st = `<span style="color:var(--green);font-weight:600">✓ ${esc(s.done_by)}</span><div class="sub">${fmtDT(s.done_at)}${s.note ? ' · ' + esc(s.note) : ''}</div>
+            ${r.status === 'Approved' ? `<button class="btn link sm undoSys" data-s="${esc(s.system_code)}">Undo</button>` : ''}`;
+        else st = `<button class="btn sm doSys" data-s="${esc(s.system_code)}">Mark as updated</button>`;
+        return `<div class="sys ${!s.required ? 'na' : s.done_at ? 'done' : ''}"><div><div class="nm">${esc(s.system_code)}</div>${hint}</div><div class="st">${st}</div></div>`;
+      }).join('')}
+      ${r.status === 'Complete' ? `<div class="callout green" style="margin-top:10px"><b>Complete</b> · ${fmtDT(r.completed_at)} — record locked.</div>` : ''}
+      </div>`;
+  }
+
+  $('#modalCard').innerHTML = `
+    <div class="mhead">
+      <div><div class="ref">${ref(r.ref_no)} <span class="badge ${statusClass(r.status)}" style="margin-left:6px">${esc(statusLabel(r.status))}</span></div>
+      <h2>${esc(r.product_name)}</h2><div class="sub">${esc(r.customer)} · Mould ${esc(r.mould_number)} · ${esc(r.change_type)}</div></div>
+      <button class="x" id="closeM" aria-label="Close">×</button>
+    </div>
+    <div class="mbody">
+      <div class="sec"><h3>Product</h3><div class="kv">
+        ${kv('Product code', r.product_code)}${kv('Mould number', r.mould_number)}${kv('Material thickness', r.material_thickness)}
+        ${kv('Type / colour', r.type_colour)}${kv('Customer', r.customer)}${kv('Change type', r.change_type)}
+        ${kv('Tool change', r.tool_change ? 'Yes — replace Sample Room samples' : '')}${kv('Revert on', fmtD(r.revert_date))}
+        ${kv('Date required', fmtD(r.date_required))}${kv('Requested by', r.requested_by)}${kv('Raised', fmtDT(r.created_at))}
+      </div></div>
+      <div class="sec"><h3>Reason for change</h3><div>${esc(r.reason)}</div></div>
+      <div class="sec"><h3>Packaging specification</h3>${compareTable(r)}</div>
+      ${machine ? `<div class="sec"><h3>Machine settings</h3><div class="kv">${machine}</div></div>` : ''}
+      ${r.packaging_instructions ? `<div class="sec"><h3>Packaging instructions (job docket)</h3><div class="docket">${esc(r.packaging_instructions)}</div></div>` : ''}
+      ${approval}
+      <div class="sec"><h3>Activity</h3>
+        <ul class="log">${events.map(e => `<li class="${esc(e.event)}" data-e="${esc(e.event)}"><b>${esc(e.event)}</b>${e.detail ? ' — ' + esc(e.detail) : ''}<div class="when">${esc(e.actor_name || '')} · ${fmtDT(e.created_at)}</div></li>`).join('')}</ul>
+        <div style="display:flex;gap:8px;margin-top:8px"><input type="text" id="cmText" placeholder="Add a comment…"><button class="btn ghost sm" id="cmBtn">Add</button></div>
+      </div>
+    </div>
+    <div class="mfoot"><button class="btn ghost" id="printBtn">🖨 Print / save PDF</button><button class="btn" id="closeM2">Close</button></div>`;
+
+  const id = r.id;
+  $('#closeM').onclick = $('#closeM2').onclick = closeDetail;
+  $('#printBtn').onclick = () => printRecord(r, events);
+  $('#cmBtn').onclick = async () => {
+    const t = $('#cmText').value.trim(); if (!t) return;
+    const { error } = await sb.rpc('add_spec_comment', { p_id: id, p_text: t });
+    if (error) return toast(error.message, true);
+    refreshDetail(id);
+  };
+  if ($('#apBtn')) {
+    $('#apBtn').onclick = async () => {
+      const systems = $$('.apSys').filter(c => c.checked).map(c => c.value);
+      if (!systems.length && !confirm('No systems ticked — the request will be closed immediately. Continue?')) return;
+      $('#apBtn').disabled = true;
+      const { data: status, error } = await sb.rpc('approve_spec_change', { p_id: id, p_systems: systems, p_notes: $('#apNotes').value });
+      if (error) { $('#apBtn').disabled = false; return toast(error.message, true); }
+      notify(id, 'approved'); if (status === 'Complete') notify(id, 'completed');
+      toast('Approved'); refreshDetail(id);
+    };
+    $('#rejToggle').onclick = () => { $('#rejBox').hidden = !$('#rejBox').hidden; $('#rejReason').focus(); };
+    $('#rejBtn').onclick = async () => {
+      const reason = $('#rejReason').value.trim(); if (!reason) return toast('Please give a reason', true);
+      const { error } = await sb.rpc('reject_spec_change', { p_id: id, p_reason: reason });
+      if (error) return toast(error.message, true);
+      notify(id, 'rejected'); toast('Rejected'); refreshDetail(id);
+    };
+  }
+  $$('.doSys').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const { data: status, error } = await sb.rpc('signoff_spec_system', { p_id: id, p_system: b.dataset.s, p_note: null });
+    if (error) { b.disabled = false; return toast(error.message, true); }
+    if (status === 'Complete') { notify(id, 'completed'); toast('All systems updated — request complete'); }
+    else toast(`${b.dataset.s} signed off`);
+    refreshDetail(id);
+  });
+  $$('.undoSys').forEach(b => b.onclick = async () => {
+    if (!confirm(`Remove the sign-off for ${b.dataset.s}? This is recorded in the activity log.`)) return;
+    const { error } = await sb.rpc('undo_spec_system', { p_id: id, p_system: b.dataset.s });
+    if (error) return toast(error.message, true);
+    refreshDetail(id);
+  });
+}
+async function refreshDetail(id) { await loadDash(); if (state.openId === id) openDetail(id); }
+
+/* ================= PRINT ================= */
+function printRecord(r, events) {
+  const row = (k, v) => `<tr><th>${k}</th><td class="pre">${esc(v) || '&nbsp;'}</td></tr>`;
+  const isNew = r.change_type === 'New Job';
+  const spec = SPEC_FIELDS.map(([k, l]) => `<tr><th>${l}</th>${isNew ? '' : `<td>${esc(r.old_spec?.[k])}</td>`}<td>${esc(r.new_spec?.[k])}</td></tr>`).join('');
+  const sys = sysOf(r).map(s => `<tr><th>${esc(s.system_code)}</th><td>${!s.required ? 'N/A' : s.done_at ? `✓ ${esc(s.done_by)} — ${fmtDT(s.done_at)}` : 'Outstanding'}</td></tr>`).join('');
+  $('#print-area').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px">
+      <div><div style="font-size:11px">Avoncourt Packaging Ltd</div><h1>Product Specification Change Sheet</h1></div>
+      <div style="text-align:right"><b style="font-size:16px">${ref(r.ref_no)}</b><br>Status: ${esc(r.status)}</div></div>
+    <table>${row('Product name', r.product_name)}${row('Product code', r.product_code)}${row('Mould number', r.mould_number)}
+      ${row('Material thickness', r.material_thickness)}${row('Type / colour', r.type_colour)}${row('Customer', r.customer)}
+      ${row('Change type', r.change_type + (r.tool_change ? ' — permanent tool change' : ''))}${r.revert_date ? row('Revert on', fmtD(r.revert_date)) : ''}
+      ${row('Reason for change', r.reason)}</table>
+    <table><tr><th>Packaging spec</th>${isNew ? '' : '<th>Old</th>'}<th>New</th></tr>${spec}</table>
+    <table>${MACHINE_FIELDS.map(([k, l]) => row(l, r.machine_settings?.[k])).join('')}${row('Packaging instructions (job docket)', r.packaging_instructions)}</table>
+    <table>${row('Changes requested by', `${r.requested_by} — ${fmtDT(r.created_at)}`)}
+      ${r.status === 'Rejected' ? row('Rejected by', `${r.rejected_by} — ${fmtDT(r.rejected_at)}\n${r.rejection_reason}`)
+        : row('Changes approved by', r.approved_by ? `${r.approved_by} — ${fmtDT(r.approved_at)}${r.approval_notes ? '\n' + r.approval_notes : ''}` : '')}
+      ${r.completed_at ? row('Completed', fmtDT(r.completed_at)) : ''}</table>
+    ${r.status !== 'Rejected' ? `<table><tr><th colspan="2">Systems amended</th></tr>${sys}</table>` : ''}
+    <div class="foot">Once JOB 7 has been updated please ensure that all subsequent jobs have been amended to reflect the new change.
+      If the change to the tool is permanent, samples in the Sample Room will need to be replaced with the new version.<br>
+      QMSCSF — digital record · printed ${fmtDT(new Date().toISOString())}</div>`;
+  window.print();
+}
+
+/* ================= PEOPLE & NOTIFICATIONS ================= */
+$('#settingsBtn').onclick = () => { show('settings'); loadPeople(); };
+$('#backDash').onclick = () => { show('dash'); loadDash(); };
+const FLAGS = ['dashboard_access', 'is_admin', 'on_submitted', 'on_approved', 'on_completed', 'on_rejected', 'active'];
+async function loadPeople() {
+  const { data, error } = await sb.from('spec_change_people').select('*').order('full_name');
+  if (error) return toast(error.message, true);
+  const admin = state.isAdmin, dis = admin ? '' : 'disabled';
+  $('#notAdminMsg').hidden = admin; $('#addPerson').hidden = !admin;
+  $('#peopleRows').innerHTML = (data || []).map(x => `<tr data-e="${esc(x.email)}" style="${x.active ? '' : 'opacity:.5'}">
+    <td><b>${esc(x.full_name)}</b></td><td class="sub">${esc(x.email)}</td>
+    ${FLAGS.map(f => `<td class="c"><input type="checkbox" data-f="${f}" ${x[f] ? 'checked' : ''} ${dis}></td>`).join('')}
+    <td>${admin && x.email !== state.email ? '<button class="btn link sm pDel" style="color:var(--red)">Remove</button>' : ''}</td></tr>`).join('')
+    || '<tr><td colspan="10" class="sub">No one added yet.</td></tr>';
+}
+$('#peopleRows').addEventListener('change', async e => {
+  const cb = e.target; if (!cb.dataset.f) return;
+  const tr = cb.closest('tr'), email = tr.dataset.e, patch = { [cb.dataset.f]: cb.checked };
+  // keep flags consistent: admin needs dashboard; removing dashboard removes admin
+  if (cb.dataset.f === 'is_admin' && cb.checked) patch.dashboard_access = true;
+  if (cb.dataset.f === 'dashboard_access' && !cb.checked) patch.is_admin = false;
+  const { data, error } = await sb.from('spec_change_people').update(patch).eq('email', email).select('email');
+  if (error || !data?.length) { toast(error ? error.message : 'Not saved — admin only', true); return loadPeople(); }
+  toast('Saved'); loadPeople();
+});
+$('#peopleRows').addEventListener('click', async e => {
+  if (!e.target.classList.contains('pDel')) return;
+  const email = e.target.closest('tr').dataset.e;
+  if (!confirm(`Remove ${email}? They'll lose dashboard access and stop getting emails. (Their name stays on past records.)`)) return;
+  const { error } = await sb.from('spec_change_people').delete().eq('email', email);
+  if (error) return toast(error.message, true);
+  loadPeople();
+});
+$('#apAdd').onclick = async () => {
+  const email = $('#apEmail').value.trim().toLowerCase(), full_name = $('#apName').value.trim();
+  if (!full_name) return toast('Enter a name', true);
+  if (!/^\S+@\S+\.\S+$/.test(email)) return toast('Enter a valid email', true);
+  const row = { email, full_name };
+  $$('#apFlags input').forEach(c => row[c.value] = c.checked);
+  const { error } = await sb.from('spec_change_people').insert(row);
+  if (error) return toast(error.code === '23505' ? 'That email is already on the list' : error.message, true);
+  $('#apEmail').value = $('#apName').value = ''; $$('#apFlags input').forEach(c => c.checked = false);
+  loadPeople(); toast('Added');
+};
+
+/* ================= START ================= */
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (state.deepLink && !session) show('signin');
+})();
+</script>
+</body>
+</html>
