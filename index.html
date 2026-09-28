@@ -72,7 +72,7 @@
   .seg{display:flex;background:#fff;border:1px solid #cbd5e0;border-radius:8px;overflow:hidden}
   .seg button{border:0;background:none;padding:8px 14px;cursor:pointer;font-weight:500;color:#4a5568}
   .seg button.active{background:var(--navy);color:#fff}
-  .toolbar input[type=search]{max-width:320px;flex:1}
+  .toolbar input[type=search]{max-width:320px;min-width:200px;flex:1}
   .tablewrap{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:auto}
   table.list{width:100%;border-collapse:collapse;font-size:14px}
   table.list th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);background:#fafbfc;white-space:nowrap}
@@ -305,7 +305,7 @@
   <!-- ============ PEOPLE & NOTIFICATIONS ============ -->
   <section id="view-settings" hidden>
     <button class="btn link" id="backDash">← Back to dashboard</button>
-    <h1>Dashboard users</h1>
+    <h1>Dashboard users &amp; deleted log</h1>
     <p class="lead">These people can sign in to the dashboard to view, approve and sign off changes. Their name is stamped on every action. Admins can also manage this list. Notifications go to the Teams channel, so there's nothing to set per person.</p>
     <div class="callout" id="notAdminMsg" style="margin-bottom:12px" hidden>You can view this list but only an admin can change it.</div>
     <div class="tablewrap">
@@ -324,6 +324,13 @@
         <label><input type="checkbox" value="is_admin">Also make admin</label>
       </div>
       <div class="actions" style="margin-top:12px"><button class="btn" id="apAdd">Add person</button></div>
+    </div>
+    <h2 style="font-size:17px;margin:28px 0 10px">Deleted requests log</h2>
+    <div class="tablewrap">
+      <table class="set">
+        <thead><tr><th>Ref</th><th>Product</th><th>Mould</th><th>Status when deleted</th><th>Deleted by</th><th>When</th><th>Reason</th></tr></thead>
+        <tbody id="delRows"></tbody>
+      </table>
     </div>
   </section>
 </main>
@@ -660,11 +667,30 @@ function renderDetail(r, events) {
         <div style="display:flex;gap:8px;margin-top:8px"><input type="text" id="cmText" placeholder="Add a comment…"><button class="btn ghost sm" id="cmBtn">Add</button></div>
       </div>
     </div>
-    <div class="mfoot"><button class="btn ghost" id="printBtn">🖨 Print / save PDF</button><button class="btn" id="closeM2">Close</button></div>`;
+    <div id="delBox" class="callout red" style="margin:0 22px 14px" hidden>
+      <b>Delete ${ref(r.ref_no)}?</b> This removes the request, its sign-offs and activity. A copy is kept in the deleted log with your name and reason.
+      <label class="f" style="margin-top:10px">Reason for deleting<input type="text" id="delReason" placeholder="e.g. test entry, duplicate of SCR-0012"></label>
+      <label class="f" style="margin-top:8px"><span>Type <b>${ref(r.ref_no)}</b> to confirm</span><input type="text" id="delConfirm" autocomplete="off"></label>
+      <div class="actions" style="margin-top:10px"><button class="btn ghost sm" id="delCancel">Cancel</button><button class="btn red sm" id="delGo">Delete permanently</button></div>
+    </div>
+    <div class="mfoot">${state.isAdmin ? '<button class="btn ghost" id="delBtn" style="color:var(--red);margin-right:auto">🗑 Delete</button>' : ''}<button class="btn ghost" id="printBtn">🖨 Print / save PDF</button><button class="btn" id="closeM2">Close</button></div>`;
 
   const id = r.id;
   $('#closeM').onclick = $('#closeM2').onclick = closeDetail;
   $('#printBtn').onclick = () => printRecord(r, events);
+  if ($('#delBtn')) {
+    $('#delBtn').onclick = () => { $('#delBox').hidden = false; $('#delReason').focus(); $('#delBox').scrollIntoView({ block: 'nearest' }); };
+    $('#delCancel').onclick = () => { $('#delBox').hidden = true; };
+    $('#delGo').onclick = async () => {
+      const reason = $('#delReason').value.trim();
+      if (!reason) return toast('Please give a reason', true);
+      if ($('#delConfirm').value.trim().toUpperCase() !== ref(r.ref_no)) return toast(`Type ${ref(r.ref_no)} exactly to confirm`, true);
+      $('#delGo').disabled = true;
+      const { error } = await sb.rpc('delete_spec_change', { p_id: id, p_reason: reason });
+      if (error) { $('#delGo').disabled = false; return toast(error.message, true); }
+      closeDetail(); toast(`${ref(r.ref_no)} deleted`); loadDash();
+    };
+  }
   $('#cmBtn').onclick = async () => {
     const t = $('#cmText').value.trim(); if (!t) return;
     const { error } = await sb.rpc('add_spec_comment', { p_id: id, p_text: t });
@@ -747,6 +773,10 @@ async function loadPeople() {
     ${FLAGS.map(f => `<td class="c"><input type="checkbox" data-f="${f}" ${x[f] ? 'checked' : ''} ${dis}></td>`).join('')}
     <td>${admin && x.email !== state.email ? '<button class="btn link sm pDel" style="color:var(--red)">Remove</button>' : ''}</td></tr>`).join('')
     || '<tr><td colspan="5" class="sub">No one added yet.</td></tr>';
+  const { data: dels } = await sb.from('spec_change_deletions').select('ref_no,product_name,mould_number,status,deleted_by,deleted_at,reason').order('deleted_at', { ascending: false });
+  $('#delRows').innerHTML = (dels || []).map(x => `<tr><td class="ref">${ref(x.ref_no)}</td><td>${esc(x.product_name)}</td><td>${esc(x.mould_number)}</td>
+    <td>${esc(x.status)}</td><td>${esc(x.deleted_by)}</td><td>${fmtDT(x.deleted_at)}</td><td>${esc(x.reason)}</td></tr>`).join('')
+    || '<tr><td colspan="7" class="sub">Nothing deleted.</td></tr>';
 }
 $('#peopleRows').addEventListener('change', async e => {
   const cb = e.target; if (!cb.dataset.f) return;
