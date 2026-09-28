@@ -221,7 +221,7 @@
         <h2><span class="num" id="reqNum">4</span> Requested by</h2>
         <div class="grid">
           <label class="f">Your name <span class="req">*</span><input type="text" name="requested_by" required autocomplete="name"></label>
-          <label class="f">Your email <span class="hint">optional — to be told when it's approved/done</span><input type="email" name="requester_email" autocomplete="email"></label>
+          <label class="f">Your email <span class="hint">optional</span><input type="email" name="requester_email" autocomplete="email"></label>
           <label class="f">Date required<input type="date" name="date_required"></label>
         </div>
       </div>
@@ -242,7 +242,7 @@
       <div class="tick">✓</div>
       <h1>Request submitted</h1>
       <div class="refbig" id="successRef"></div>
-      <p class="lead" style="margin-top:8px">The approvers have been notified. Please don't change JOB 7 until this is approved.<br>Quote this reference if you need to follow up.</p>
+      <p class="lead" style="margin-top:8px">It's been posted to the Spec Changes Teams channel. Please don't change JOB 7 until this is approved.<br>Quote this reference if you need to follow up.</p>
       <button class="btn" id="anotherBtn">Raise another request</button>
     </div>
   </section>
@@ -263,7 +263,7 @@
           <button class="btn" id="verifyCode">Sign in</button>
         </div>
       </div>
-      <div id="notAuth" class="callout red" style="margin-top:14px" hidden>Your email isn't on the approver list for this dashboard. Ask an admin to add you (People &amp; notifications).</div>
+      <div id="notAuth" class="callout red" style="margin-top:14px" hidden>Your email isn't on the approver list for this dashboard. Ask an admin to add you (Dashboard users).</div>
     </div>
   </section>
 
@@ -288,7 +288,7 @@
       <span style="margin-left:auto"></span>
       <button class="btn ghost sm" id="refreshBtn">↻ Refresh</button>
       <button class="btn ghost sm" id="csvBtn">Export CSV</button>
-      <button class="btn ghost sm" id="settingsBtn">⚙ People &amp; notifications</button>
+      <button class="btn ghost sm" id="settingsBtn">⚙ Dashboard users</button>
     </div>
     <div class="tablewrap">
       <table class="list">
@@ -305,15 +305,12 @@
   <!-- ============ PEOPLE & NOTIFICATIONS ============ -->
   <section id="view-settings" hidden>
     <button class="btn link" id="backDash">← Back to dashboard</button>
-    <h1>People &amp; notifications</h1>
-    <p class="lead">Tick what each person needs. Dashboard access lets them view, approve and sign off; the email columns control which notifications they get. The requester is also emailed on approval / rejection / completion if they gave an address.</p>
+    <h1>Dashboard users</h1>
+    <p class="lead">These people can sign in to the dashboard to view, approve and sign off changes. Their name is stamped on every action. Admins can also manage this list. Notifications go to the Teams channel, so there's nothing to set per person.</p>
     <div class="callout" id="notAdminMsg" style="margin-bottom:12px" hidden>You can view this list but only an admin can change it.</div>
     <div class="tablewrap">
       <table class="set">
-        <thead>
-          <tr><th rowspan="2">Name</th><th rowspan="2">Email</th><th class="c grp" colspan="2">Access</th><th class="c grp" colspan="4">Email me when…</th><th class="c" rowspan="2">Active</th><th rowspan="2"></th></tr>
-          <tr><th class="c">Dashboard</th><th class="c">Admin</th><th class="c">New request</th><th class="c">Approved</th><th class="c">Completed</th><th class="c">Rejected</th></tr>
-        </thead>
+        <thead><tr><th>Name</th><th>Email</th><th class="c">Dashboard access</th><th class="c">Admin</th><th></th></tr></thead>
         <tbody id="peopleRows"></tbody>
       </table>
     </div>
@@ -324,11 +321,7 @@
         <label class="f">Email<input type="email" id="apEmail" placeholder="name@avoncourt.com"></label>
       </div>
       <div class="pills" style="margin-top:12px" id="apFlags">
-        <label><input type="checkbox" value="dashboard_access">Dashboard access</label>
-        <label><input type="checkbox" value="on_submitted">Email: new request</label>
-        <label><input type="checkbox" value="on_approved">Email: approved</label>
-        <label><input type="checkbox" value="on_completed">Email: completed</label>
-        <label><input type="checkbox" value="on_rejected">Email: rejected</label>
+        <label><input type="checkbox" value="is_admin">Also make admin</label>
       </div>
       <div class="actions" style="margin-top:12px"><button class="btn" id="apAdd">Add person</button></div>
     </div>
@@ -743,7 +736,7 @@ function printRecord(r, events) {
 /* ================= PEOPLE & NOTIFICATIONS ================= */
 $('#settingsBtn').onclick = () => { show('settings'); loadPeople(); };
 $('#backDash').onclick = () => { show('dash'); loadDash(); };
-const FLAGS = ['dashboard_access', 'is_admin', 'on_submitted', 'on_approved', 'on_completed', 'on_rejected', 'active'];
+const FLAGS = ['dashboard_access', 'is_admin'];
 async function loadPeople() {
   const { data, error } = await sb.from('spec_change_people').select('*').order('full_name');
   if (error) return toast(error.message, true);
@@ -753,7 +746,7 @@ async function loadPeople() {
     <td><b>${esc(x.full_name)}</b></td><td class="sub">${esc(x.email)}</td>
     ${FLAGS.map(f => `<td class="c"><input type="checkbox" data-f="${f}" ${x[f] ? 'checked' : ''} ${dis}></td>`).join('')}
     <td>${admin && x.email !== state.email ? '<button class="btn link sm pDel" style="color:var(--red)">Remove</button>' : ''}</td></tr>`).join('')
-    || '<tr><td colspan="10" class="sub">No one added yet.</td></tr>';
+    || '<tr><td colspan="5" class="sub">No one added yet.</td></tr>';
 }
 $('#peopleRows').addEventListener('change', async e => {
   const cb = e.target; if (!cb.dataset.f) return;
@@ -768,7 +761,7 @@ $('#peopleRows').addEventListener('change', async e => {
 $('#peopleRows').addEventListener('click', async e => {
   if (!e.target.classList.contains('pDel')) return;
   const email = e.target.closest('tr').dataset.e;
-  if (!confirm(`Remove ${email}? They'll lose dashboard access and stop getting emails. (Their name stays on past records.)`)) return;
+  if (!confirm(`Remove ${email}? They'll lose dashboard access. (Their name stays on past records.)`)) return;
   const { error } = await sb.from('spec_change_people').delete().eq('email', email);
   if (error) return toast(error.message, true);
   loadPeople();
@@ -777,7 +770,7 @@ $('#apAdd').onclick = async () => {
   const email = $('#apEmail').value.trim().toLowerCase(), full_name = $('#apName').value.trim();
   if (!full_name) return toast('Enter a name', true);
   if (!/^\S+@\S+\.\S+$/.test(email)) return toast('Enter a valid email', true);
-  const row = { email, full_name };
+  const row = { email, full_name, dashboard_access: true };
   $$('#apFlags input').forEach(c => row[c.value] = c.checked);
   const { error } = await sb.from('spec_change_people').insert(row);
   if (error) return toast(error.code === '23505' ? 'That email is already on the list' : error.message, true);
