@@ -347,9 +347,11 @@ const CONFIG = {
   NOTIFY_FUNCTION: 'spec-change-notify',
   REF_PREFIX: 'SCR-'
 };
-const SYSTEMS = ['JOB 7 / QA','AIMS / CRM','WIMS / ADA','SAGE / SI','Labels / QA','Sample Room'];
+const SYSTEMS = ['JOB 7 / QA','Existing jobs (JOB 7)','AIMS / CRM','WIMS / ADA','SAGE / SI','Labels / QA','Sample Room'];
+const EXISTING = 'Existing jobs (JOB 7)';
 const SYSTEM_HINTS = {
-  'JOB 7 / QA': 'Once JOB 7 is updated, make sure all subsequent jobs are amended to reflect the change.',
+  'JOB 7 / QA': 'Update the job spec in JOB 7.',
+  'Existing jobs (JOB 7)': 'JOB 7 does not carry the change onto jobs already set up. Amend every existing job for this product, then list the job numbers when signing off.',
   'Sample Room': 'If the tool change is permanent, samples must be replaced with the new version.'
 };
 const SPEC_FIELDS = [
@@ -573,7 +575,7 @@ $('#csvBtn').onclick = () => {
       r.type_colour, r.customer, r.reason, ...SPEC_FIELDS.flatMap(([k]) => [r.old_spec?.[k], r.new_spec?.[k]]),
       r.machine_settings?.stroke, r.machine_settings?.speed, r.machine_settings?.stacker, r.packaging_instructions,
       r.requested_by, r.approved_by, fmtDT(r.approved_at), fmtDT(r.completed_at), r.rejected_by, r.rejection_reason,
-      ...SYSTEMS.map(s => { const x = sys[s]; return !x ? '' : !x.required ? 'N/A' : x.done_at ? `${x.done_by} / ${fmtDT(x.done_at)}` : 'Outstanding'; })
+      ...SYSTEMS.map(s => { const x = sys[s]; return !x ? '' : !x.required ? 'N/A' : x.done_at ? `${x.done_by} / ${fmtDT(x.done_at)}${x.note ? ' / ' + x.note : ''}` : 'Outstanding'; })
     ].map(cell).join(',');
   });
   const blob = new Blob(['﻿' + [cols.map(cell).join(','), ...rows].join('\r\n')], { type: 'text/csv' });
@@ -716,8 +718,14 @@ function renderDetail(r, events) {
     };
   }
   $$('.doSys').forEach(b => b.onclick = async () => {
+    let note = null;
+    if (b.dataset.s === EXISTING) {
+      note = prompt('List the job numbers you amended in JOB 7 (or type "None - no existing jobs"):', '');
+      if (note === null) return;
+      if (!note.trim()) return toast('Job numbers are required for this step', true);
+    }
     b.disabled = true;
-    const { data: status, error } = await sb.rpc('signoff_spec_system', { p_id: id, p_system: b.dataset.s, p_note: null });
+    const { data: status, error } = await sb.rpc('signoff_spec_system', { p_id: id, p_system: b.dataset.s, p_note: note });
     if (error) { b.disabled = false; return toast(error.message, true); }
     if (status === 'Complete') { notify(id, 'completed'); toast('All systems updated — request complete'); }
     else toast(`${b.dataset.s} signed off`);
@@ -737,7 +745,7 @@ function printRecord(r, events) {
   const row = (k, v) => `<tr><th>${k}</th><td class="pre">${esc(v) || '&nbsp;'}</td></tr>`;
   const isNew = r.change_type === 'New Job';
   const spec = SPEC_FIELDS.map(([k, l]) => `<tr><th>${l}</th>${isNew ? '' : `<td>${esc(r.old_spec?.[k])}</td>`}<td>${esc(r.new_spec?.[k])}</td></tr>`).join('');
-  const sys = sysOf(r).map(s => `<tr><th>${esc(s.system_code)}</th><td>${!s.required ? 'N/A' : s.done_at ? `✓ ${esc(s.done_by)} — ${fmtDT(s.done_at)}` : 'Outstanding'}</td></tr>`).join('');
+  const sys = sysOf(r).map(s => `<tr><th>${esc(s.system_code)}</th><td>${!s.required ? 'N/A' : s.done_at ? `✓ ${esc(s.done_by)} — ${fmtDT(s.done_at)}${s.note ? '<br>' + esc(s.note) : ''}` : 'Outstanding'}</td></tr>`).join('');
   $('#print-area').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px">
       <div><div style="font-size:11px">Avoncourt Packaging Ltd</div><h1>Product Specification Change Sheet</h1></div>
