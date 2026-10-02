@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Spec Change Control · APL</title>
+<title>Jobs7 Product Specification Change · APL</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -155,7 +155,7 @@
 
 <header class="topbar">
   <div class="topbar-in">
-    <div class="brand"><small>Avoncourt Packaging</small><b>Product Spec Change Control</b></div>
+    <div class="brand"><small>Avoncourt Packaging</small><b>Jobs7 Product Specification Change</b></div>
     <nav class="nav">
       <button data-nav="request" class="active">New request</button>
       <button data-nav="dash">Dashboard</button>
@@ -167,8 +167,8 @@
 <main>
   <!-- ============ REQUEST FORM ============ -->
   <section id="view-request" class="narrow">
-    <h1>Product Specification Change Request</h1>
-    <p class="lead">Use this for any new job or change to a job spec in JOB 7. Nothing should be changed in JOB 7 until the request is approved.</p>
+    <h1>Jobs7 Product Specification Change Request</h1>
+    <p class="lead">Use this for any new job or change to a job spec in Jobs7. Nothing should be changed in Jobs7 until the request is approved.</p>
 
     <form id="reqForm" novalidate>
       <div class="card">
@@ -201,7 +201,7 @@
       </div>
 
       <div class="card" id="oldCard" hidden>
-        <h2><span class="num">3</span> Old packaging specification <span class="sub" style="font-weight:400">— as currently in JOB 7</span></h2>
+        <h2><span class="num">3</span> Old packaging specification <span class="sub" style="font-weight:400">— as currently in Jobs7</span></h2>
         <div class="grid three" id="oldFields"></div>
       </div>
 
@@ -242,7 +242,7 @@
       <div class="tick">✓</div>
       <h1>Request submitted</h1>
       <div class="refbig" id="successRef"></div>
-      <p class="lead" style="margin-top:8px">It's been posted to the Spec Changes Teams channel. Please don't change JOB 7 until this is approved.<br>Quote this reference if you need to follow up.</p>
+      <p class="lead" style="margin-top:8px">It's been posted to the Spec Changes Teams channel. Please don't change Jobs7 until this is approved.<br>Quote this reference if you need to follow up.</p>
       <button class="btn" id="anotherBtn">Raise another request</button>
     </div>
   </section>
@@ -347,11 +347,11 @@ const CONFIG = {
   NOTIFY_FUNCTION: 'spec-change-notify',
   REF_PREFIX: 'SCR-'
 };
-const SYSTEMS = ['JOB 7 / QA','Existing jobs (JOB 7)','AIMS / CRM','WIMS / ADA','SAGE / SI','Labels / QA','Sample Room'];
-const EXISTING = 'Existing jobs (JOB 7)';
+const SYSTEMS = ['Jobs7 / QA','Existing jobs (Jobs7)','AIMS / CRM','WIMS / ADA','SAGE / SI','Labels / QA','Sample Room'];
+const EXISTING = 'Existing jobs (Jobs7)';
 const SYSTEM_HINTS = {
-  'JOB 7 / QA': 'Update the job spec in JOB 7.',
-  'Existing jobs (JOB 7)': 'JOB 7 does not carry the change onto jobs already set up. Amend every existing job for this product, then list the job numbers when signing off.',
+  'Jobs7 / QA': 'Update the job spec in Jobs7.',
+  'Existing jobs (Jobs7)': 'Jobs7 does not carry the change onto jobs already set up. Amend every existing job for this product, then list the job numbers when signing off.',
   'Sample Room': 'If the tool change is permanent, samples must be replaced with the new version.'
 };
 const SPEC_FIELDS = [
@@ -720,7 +720,7 @@ function renderDetail(r, events) {
   $$('.doSys').forEach(b => b.onclick = async () => {
     let note = null;
     if (b.dataset.s === EXISTING) {
-      note = prompt('List the job numbers you amended in JOB 7 (or type "None - no existing jobs"):', '');
+      note = prompt('List the job numbers you amended in Jobs7 (or type "None - no existing jobs"):', '');
       if (note === null) return;
       if (!note.trim()) return toast('Job numbers are required for this step', true);
     }
@@ -748,7 +748,7 @@ function printRecord(r, events) {
   const sys = sysOf(r).map(s => `<tr><th>${esc(s.system_code)}</th><td>${!s.required ? 'N/A' : s.done_at ? `✓ ${esc(s.done_by)} — ${fmtDT(s.done_at)}${s.note ? '<br>' + esc(s.note) : ''}` : 'Outstanding'}</td></tr>`).join('');
   $('#print-area').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px">
-      <div><div style="font-size:11px">Avoncourt Packaging Ltd</div><h1>Product Specification Change Sheet</h1></div>
+      <div><div style="font-size:11px">Avoncourt Packaging Ltd</div><h1>Jobs7 Product Specification Change Sheet</h1></div>
       <div style="text-align:right"><b style="font-size:16px">${ref(r.ref_no)}</b><br>Status: ${esc(r.status)}</div></div>
     <table>${row('Product name', r.product_name)}${row('Product code', r.product_code)}${row('Mould number', r.mould_number)}
       ${row('Material thickness', r.material_thickness)}${row('Type / colour', r.type_colour)}${row('Customer', r.customer)}
@@ -761,7 +761,7 @@ function printRecord(r, events) {
         : row('Changes approved by', r.approved_by ? `${r.approved_by} — ${fmtDT(r.approved_at)}${r.approval_notes ? '\n' + r.approval_notes : ''}` : '')}
       ${r.completed_at ? row('Completed', fmtDT(r.completed_at)) : ''}</table>
     ${r.status !== 'Rejected' ? `<table><tr><th colspan="2">Systems amended</th></tr>${sys}</table>` : ''}
-    <div class="foot">Once JOB 7 has been updated please ensure that all subsequent jobs have been amended to reflect the new change.
+    <div class="foot">Once Jobs7 has been updated please ensure that all subsequent jobs have been amended to reflect the new change.
       If the change to the tool is permanent, samples in the Sample Room will need to be replaced with the new version.<br>
       QMSCSF — digital record · printed ${fmtDT(new Date().toISOString())}</div>`;
   window.print();
